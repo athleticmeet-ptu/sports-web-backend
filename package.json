@@ -1,10 +1,4 @@
 {
-  "main": "server.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js",
-    "vercel-start": "node server.js"
-  },
   "dependencies": {
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
@@ -14,5 +8,25 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.16.3",
     "morgan": "^1.10.0"
-  }
+  },
+  "name": "sportsweb-backend",
+  "version": "1.0.0",
+  "main": "server.js",
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js",
+    "vercel-start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/athleticmeet-ptu/sports-web-backend.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/athleticmeet-ptu/sports-web-backend/issues"
+  },
+  "homepage": "https://github.com/athleticmeet-ptu/sports-web-backend#readme",
+  "description": ""
 }

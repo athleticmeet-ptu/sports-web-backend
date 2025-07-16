@@ -6,13 +6,12 @@ const bcrypt = require('bcrypt');
 require('dotenv').config();
 const createAdminIfNotExists = require('./controllers/CreateAdmin');
 const User = require('./models/User');
-const authRoutes = require('./routes/auth');
-const adminRoutes = require('./routes/admin');
-const studentRoutes = require('./routes/student');
-const teacherRoutes = require('./routes/teacher');
+const authRoutes = require('./Routes/auth');
+const adminRoutes = require('./Routes/admin');
+const studentRoutes = require('./Routes/student');
+const teacherRoutes = require('./Routes/teacher');
 
 const app = express();
-
 app.use(cors({
   origin: function (origin, callback) {
     const allowed = ['http://localhost:3000', 'http://localhost:5173'];
