@@ -13,7 +13,7 @@ exports.login = async (req, res) => {
 
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
     res.cookie('token', token, { httpOnly: true,  secure: true,       // 👈 required for cross-origin cookies
-  sameSite: 'none'}).json({
+  sameSite: 'lax'}).json({
   message: 'Login successful',
   user: {
     id: user._id,

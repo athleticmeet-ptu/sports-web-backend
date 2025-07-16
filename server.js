@@ -16,9 +16,9 @@ app.use(cors({
   origin: 'https://sports-web-frontend.vercel.app',
   credentials: true,
 }));
-
-app.use(express.json());
 app.use(cookieParser());
+app.use(express.json());
+
 
 // Routes
 app.use('/api/auth', authRoutes);
