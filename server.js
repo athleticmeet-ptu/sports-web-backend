@@ -14,7 +14,7 @@ const teacherRoutes = require('./Routes/teacher');
 const app = express();
 app.use(cors({
   origin: function (origin, callback) {
-    const allowed = ['http://localhost:3000', 'http://localhost:5173'];
+    const allowed = ['http://localhost:3000', 'http://localhost:5173','https://sports-web-frontend.vercel.app/'];
     if (!origin || allowed.includes(origin)) {
       callback(null, true);
     } else {
