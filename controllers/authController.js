@@ -12,7 +12,8 @@ exports.login = async (req, res) => {
     if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
 
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
-    res.cookie('token', token, { httpOnly: true }).json({
+    res.cookie('token', token, { httpOnly: true,  secure: true,       // 👈 required for cross-origin cookies
+  sameSite: 'none'}).json({
   message: 'Login successful',
   user: {
     id: user._id,
