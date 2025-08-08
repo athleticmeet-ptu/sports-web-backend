@@ -1,22 +1,28 @@
 const mongoose = require('mongoose');
 
 const StudentProfileSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  
   studentId: { type: String, unique: true },
-  session: String,
-  semester: String,
+
+  // Refers to an actual session document
+  session: { type: mongoose.Schema.Types.ObjectId, ref: 'Session'},
+  semester: { type: String },
+
   personalDetails: {
     dob: Date,
     gender: String,
     contact: String,
     address: String,
   },
-  isRegistered: { type: Boolean, default: false },
-  lockedForUpdate: { type: Boolean, default: false },
+
+  isRegistered: { type: Boolean, default: false },         // Awaiting admin approval
+  lockedForUpdate: { type: Boolean, default: false },      // Lock after approval
   pendingUpdateRequest: {
     previousData: mongoose.Schema.Types.Mixed,
     updatedData: mongoose.Schema.Types.Mixed
   },
+
   notifications: [{
     message: String,
     read: { type: Boolean, default: false },

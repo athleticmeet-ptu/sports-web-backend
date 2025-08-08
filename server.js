@@ -10,10 +10,13 @@ const authRoutes = require('./Routes/auth');
 const adminRoutes = require('./Routes/admin');
 const studentRoutes = require('./Routes/student');
 const teacherRoutes = require('./Routes/teacher');
+const sessionRoutes = require('./Routes/session');
+const captainRoutes = require('./Routes/captainRoutes');
+
 
 const app = express();
 app.use(cors({
-  origin: 'https://sports-web-frontend.vercel.app',
+  origin: 'https://sports-web-frontend.vercel.app' ||'https://localhost:3000',
   credentials: true,
 }));
 app.use(cookieParser());
@@ -25,7 +28,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/student', studentRoutes);
 app.use('/api/teacher', teacherRoutes);
-
+app.use('/api/session', sessionRoutes);
+app.use('/api/captain', captainRoutes);
 
 
 

@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 
+// Verify JWT from cookies
 exports.verifyToken = (req, res, next) => {
   console.log('📥 Incoming request to protected route');
   console.log('🔍 Cookies received:', req.cookies);
@@ -24,7 +25,31 @@ exports.verifyToken = (req, res, next) => {
   }
 };
 
-exports.isAdmin = (req, res, next) => req.user?.role === 'admin' ? next() : res.status(403).json({ message: 'Admins only' });
-exports.isTeacher = (req, res, next) => req.user?.role === 'teacher' ? next() : res.status(403).json({ message: 'Teachers only' });
-exports.isStudent = (req, res, next) => req.user?.role === 'student' ? next() : res.status(403).json({ message: 'Students only' });
+// Role-specific checks
+exports.isAdmin = (req, res, next) =>
+  req.user?.role === 'admin'
+    ? next()
+    : res.status(403).json({ message: 'Admins only' });
 
+exports.isTeacher = (req, res, next) =>
+  req.user?.role === 'teacher'
+    ? next()
+    : res.status(403).json({ message: 'Teachers only' });
+
+exports.isStudent = (req, res, next) =>
+  req.user?.role === 'student'
+    ? next()
+    : res.status(403).json({ message: 'Students only' });
+
+// ✅ Generic role check (can accept multiple allowed roles)
+exports.roleCheck = (...allowedRoles) => {
+  return (req, res, next) => {
+    if (!req.user?.role) {
+      return res.status(401).json({ message: 'Unauthorized - No role' });
+    }
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    next();
+  };
+};
