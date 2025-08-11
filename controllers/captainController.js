@@ -1,37 +1,94 @@
-// controllers/captainController.js
-const TeamMember = require("../models/TeamMember");
+const Team = require("../models/Team");
 const Session = require("../models/session");
 
-exports.getCaptainTeam = async (req, res) => {
+// Captain creates team (status = pending)
+exports.createTeam = async (req, res) => {
   try {
-    const activeSession = await Session.findOne({ isActive: true });
-    if (!activeSession) return res.status(404).json({ message: "No active session" });
+    const { teamName, sport, members, sessionId } = req.body;
 
-    const team = await TeamMember.find({
+    const session = await Session.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({ message: "Session not found" });
+    }
+
+    const existingTeam = await Team.findOne({
       captainId: req.user.id,
-      sessionId: activeSession._id
+      sessionId
+    });
+    if (existingTeam) {
+      return res.status(400).json({ message: "Team already created for this session" });
+    }
+
+    const team = new Team({
+      teamName,
+      sport,
+      members,
+      sessionId,
+      captainId: req.user.id,
+      status: "pending"
     });
 
-    res.json({ team, isFirstTime: team.length === 0, session: activeSession });
+    await team.save();
+    res.json({ message: "Team submitted for approval", team });
+  } catch (err) {
+    res.status(500).json({ message: "Error creating team", error: err.message });
+  }
+};
+
+// Captain sees team info
+exports.getCaptainTeam = async (req, res) => {
+  try {
+    const { sessionId } = req.query;
+    const session = await Session.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({ message: "Session not found" });
+    }
+
+    const team = await Team.findOne({
+      captainId: req.user.id,
+      sessionId
+    });
+
+    if (!team) {
+      return res.json({ isFirstTime: true });
+    }
+
+    if (team.status === "pending") {
+      return res.json({ isFirstTime: false, pendingApproval: true });
+    }
+
+    if (team.status === "rejected") {
+      return res.json({ isFirstTime: false, rejected: true });
+    }
+
+    res.json({ isFirstTime: false, team });
   } catch (err) {
     res.status(500).json({ message: "Error fetching team", error: err.message });
   }
 };
 
-exports.initialTeamCreate = async (req, res) => {
+// Admin approves team
+exports.approveTeam = async (req, res) => {
   try {
-    const activeSession = await Session.findOne({ isActive: true });
-    if (!activeSession) return res.status(404).json({ message: "No active session" });
+    const { teamId } = req.params;
+    const team = await Team.findByIdAndUpdate(teamId, { status: "approved" }, { new: true });
+    if (!team) return res.status(404).json({ message: "Team not found" });
 
-    const members = req.body.members.map(m => ({
-      ...m,
-      captainId: req.user.id,
-      sessionId: activeSession._id
-    }));
-
-    await TeamMember.insertMany(members);
-    res.json({ message: "Initial team registered" });
+    res.json({ message: "Team approved", team });
   } catch (err) {
-    res.status(500).json({ message: "Error creating team", error: err.message });
+    res.status(500).json({ message: "Error approving team", error: err.message });
+  }
+};
+
+// Admin rejects team
+exports.rejectTeam = async (req, res) => {
+  try {
+    const { teamId } = req.params;
+    const team = await Team.findByIdAndUpdate(teamId, { status: "rejected" }, { new: true });
+    if (!team) return res.status(404).json({ message: "Team not found" });
+
+    res.json({ message: "Team rejected", team });
+  } catch (err) {
+    res.status(500).json({ message: "Error rejecting team", error: err.message });
   }
 };

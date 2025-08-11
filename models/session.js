@@ -5,10 +5,6 @@ const SessionSchema = new mongoose.Schema({
     type: String, // e.g. "2024-25"
     required: true
   },
-  semester: {
-    type: String, // e.g. "Sem 1"
-    required: true
-  },
   startDate: {
     type: Date,
     required: true

@@ -2,7 +2,7 @@
 const Session = require('../models/session');
 
 exports.createSession = async (req, res) => {
-  const { startMonth, year, semester } = req.body;
+  const { startMonth, year } = req.body;  // Removed semester from destructuring
 
   try {
     if (!['Jan', 'July'].includes(startMonth)) {
@@ -34,7 +34,6 @@ exports.createSession = async (req, res) => {
 
     const newSession = new Session({
       session,
-      semester,
       startDate,
       endDate,
       isActive: true
@@ -50,7 +49,6 @@ exports.createSession = async (req, res) => {
     res.status(500).json({ message: 'Error creating session', error: err.message });
   }
 };
-
 
 exports.getAllSessions = async (req, res) => {
   try {

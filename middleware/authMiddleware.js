@@ -1,7 +1,8 @@
 const jwt = require('jsonwebtoken');
-
+const User = require('../models/User'); // ✅ Import your user model
 // Verify JWT from cookies
-exports.verifyToken = (req, res, next) => {
+
+exports.verifyToken = async (req, res, next) => {
   console.log('📥 Incoming request to protected route');
   console.log('🔍 Cookies received:', req.cookies);
 
@@ -17,7 +18,13 @@ exports.verifyToken = (req, res, next) => {
     console.log('✅ Token successfully verified');
     console.log('🧑‍💻 Decoded token payload:', decoded);
 
-    req.user = decoded;
+    // 🔹 Load full user from DB so we have _id and other fields
+    const user = await User.findById(decoded.id).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    req.user = user; // ✅ now req.user._id will work
     next();
   } catch (err) {
     console.error('❌ Token verification failed:', err.message);

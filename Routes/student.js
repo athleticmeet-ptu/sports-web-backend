@@ -1,12 +1,20 @@
 const express = require('express');
 const router = express.Router();
-const { getStudentProfile, updateStudentProfile,submitStudentProfile } = require('../controllers/studentController');
+const {
+  getStudentProfile,
+  updateStudentProfile,
+  submitStudentProfile
+} = require('../controllers/studentController');
 const { verifyToken, isStudent } = require('../middleware/authMiddleware');
+const resolveSession = require('../middleware/resolveSession');
 
-router.get('/profile', verifyToken, isStudent, getStudentProfile);
-router.put('/profile', verifyToken, isStudent, updateStudentProfile);
+// Get student profile for specific session (or active session if none specified)
+router.get('/profile', verifyToken, isStudent, resolveSession, getStudentProfile);
 
-// Submit profile for session registration
-router.post('/submit-profile', verifyToken, isStudent, submitStudentProfile);
+// Update profile for active session only
+router.put('/profile', verifyToken, isStudent, resolveSession, updateStudentProfile);
+
+// Submit profile for session registration (active session only)
+router.post('/submit-profile', verifyToken, isStudent, resolveSession, submitStudentProfile);
 
 module.exports = router;
