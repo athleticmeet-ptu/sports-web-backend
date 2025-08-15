@@ -4,9 +4,10 @@ const {
   createUser,
   getAllUsers,
   getPendingProfiles,
-  approveStudentProfile,
   updateTeamStatus,
-  getPendingTeams
+  getPendingTeams,
+  rejectStudentProfile,
+  approveStudentProfile
 } = require('../controllers/adminController');
 const { verifyToken, isAdmin } = require('../middleware/authMiddleware');
 
@@ -15,8 +16,13 @@ router.post('/create-user', verifyToken, isAdmin, createUser);
 router.get('/users', verifyToken, isAdmin, getAllUsers);
 
 // Student profile approvals
-router.get('/pending-profiles', verifyToken, isAdmin, getPendingProfiles);
-router.post('/approve/:id', verifyToken, isAdmin, approveStudentProfile);
+router.get('/pending-profiles', verifyToken, isAdmin,getPendingProfiles);
+
+// Approve student
+router.put('/student/:id/approve', verifyToken, isAdmin,approveStudentProfile);
+
+// Reject student
+router.delete('/student/:id/reject', verifyToken, isAdmin,rejectStudentProfile);
 
 // Team approvals
 router.get('/pending-teams', verifyToken, isAdmin, getPendingTeams);

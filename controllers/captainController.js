@@ -6,6 +6,24 @@ exports.createTeam = async (req, res) => {
   try {
     const { teamName, sport, members, sessionId } = req.body;
 
+    // Validate main fields
+    if (!teamName || !sport || !sessionId) {
+      return res.status(400).json({ message: "Team name, sport, and sessionId are required" });
+    }
+
+    // Validate members array
+    if (!Array.isArray(members) || members.length === 0) {
+      return res.status(400).json({ message: "At least one team member is required" });
+    }
+
+    for (const [index, member] of members.entries()) {
+      if (!member.name || !member.email || !member.branch || !member.urn || !member.year || !member.phone) {
+        return res.status(400).json({
+          message: `Member at index ${index} is missing required fields: name, email, branch, urn, year, phone`
+        });
+      }
+    }
+
     const session = await Session.findById(sessionId);
     if (!session) {
       return res.status(404).json({ message: "Session not found" });
@@ -34,7 +52,6 @@ exports.createTeam = async (req, res) => {
     res.status(500).json({ message: "Error creating team", error: err.message });
   }
 };
-
 // Captain sees team info
 exports.getCaptainTeam = async (req, res) => {
   try {

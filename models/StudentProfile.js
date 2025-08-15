@@ -1,17 +1,20 @@
+// models/StudentProfile.js
 const mongoose = require('mongoose');
 
 const StudentProfileSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  studentId: { type: String, unique: true },
 
+  name: String,
+  urn: { type: String, unique: true },
+  branch: String,
+  year: Number,
+  sports: [{ type: String }],
   session: { type: mongoose.Schema.Types.ObjectId, ref: 'Session' },
 
-  personalDetails: {
-    dob: Date,
-    gender: String,
-    contact: String,
-    address: String,
-  },
+  dob: Date,
+  gender: String,
+  contact: String,
+  address: String,
 
   isRegistered: { type: Boolean, default: false },
   lockedForUpdate: { type: Boolean, default: false },
