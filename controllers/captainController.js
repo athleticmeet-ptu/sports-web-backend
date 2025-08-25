@@ -83,29 +83,3 @@ exports.getCaptainTeam = async (req, res) => {
     res.status(500).json({ message: "Error fetching team", error: err.message });
   }
 };
-
-// Admin approves team
-exports.approveTeam = async (req, res) => {
-  try {
-    const { teamId } = req.params;
-    const team = await Team.findByIdAndUpdate(teamId, { status: "approved" }, { new: true });
-    if (!team) return res.status(404).json({ message: "Team not found" });
-
-    res.json({ message: "Team approved", team });
-  } catch (err) {
-    res.status(500).json({ message: "Error approving team", error: err.message });
-  }
-};
-
-// Admin rejects team
-exports.rejectTeam = async (req, res) => {
-  try {
-    const { teamId } = req.params;
-    const team = await Team.findByIdAndUpdate(teamId, { status: "rejected" }, { new: true });
-    if (!team) return res.status(404).json({ message: "Team not found" });
-
-    res.json({ message: "Team rejected", team });
-  } catch (err) {
-    res.status(500).json({ message: "Error rejecting team", error: err.message });
-  }
-};

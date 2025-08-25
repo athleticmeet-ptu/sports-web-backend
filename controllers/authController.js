@@ -1,7 +1,6 @@
 const User = require('../models/User');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-
 exports.login = async (req, res) => {
   const { email, password } = req.body;
   try {
@@ -11,19 +10,75 @@ exports.login = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
 
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
-    res.cookie('token', token, { httpOnly: true,  secure: true,       // 👈 required for cross-origin cookies
-  sameSite: 'None', maxAge: 24 * 60 * 60 * 1000}).json({
-  message: 'Login successful',
-  user: {
-    id: user._id,
-    name: user.name,
-    email: user.email,
-    role: user.role,
-  }
-});
+    // ✅ default activeRole: pehla role
+    const activeRole = user.roles?.[0] || null;
+
+    const token = jwt.sign(
+      { id: user._id, roles: user.roles, activeRole },  // activeRole included
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
+
+    res.cookie('token', token, { 
+      httpOnly: true,  
+      secure: true,       // production -> true
+      sameSite: 'None',
+      maxAge: 24 * 60 * 60 * 1000
+    }).json({
+      message: 'Login successful',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        roles: user.roles,
+        activeRole,        // ✅ frontend ko bhi bhej
+      }
+    });
 
   } catch (err) {
+    console.error("Login error:", err);
     res.status(500).json({ message: 'Server error' });
+  }
+};
+
+exports.setRole = async (req, res) => {
+  try {
+    const { role } = req.body;
+
+    // user ka pura object token se nikal lo
+    const token = req.cookies.token;
+    if (!token) return res.status(401).json({ message: "Not authenticated" });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // check karo user ke roles me yeh role hai bhi ya nahi
+    const user = await User.findById(decoded.id).lean();
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (!user.roles.includes(role)) {
+      return res.status(403).json({ message: "Invalid role selection" });
+    }
+
+    // ✅ naya token banado jisme selectedRole bhi ho
+    const newToken = jwt.sign(
+      { id: user._id, roles: user.roles, activeRole: role },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
+
+    res.cookie("token", newToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "None",
+      maxAge: 24 * 60 * 60 * 1000,
+    });
+
+    res.json({
+      message: "Role set successfully",
+      activeRole: role,
+    });
+  } catch (err) {
+    console.error("Error setting role:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };

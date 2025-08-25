@@ -19,4 +19,6 @@ const SessionSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-module.exports = mongoose.model('Session', SessionSchema);
+// ✅ Fix: check if already compiled
+module.exports = mongoose.models.Session || mongoose.model("Session", SessionSchema);
+

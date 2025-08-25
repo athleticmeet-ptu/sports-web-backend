@@ -8,7 +8,8 @@ const MemberSchema = new mongoose.Schema({
   year: { type: Number },
   email: { type: String, required: true },
   phone: { type: String },
-  sport: { type: String }
+  sport: { type: String },
+  position: { type: Number, default: null }
 }, { _id: false });
 
 const TeamMemberSchema = new mongoose.Schema({
@@ -16,7 +17,7 @@ const TeamMemberSchema = new mongoose.Schema({
   sessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Session', required: true },
   
   members: { type: [MemberSchema], default: [] }, // all members in one array
-
+  position: { type: String, default:"pending" },
   status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' }
 }, { timestamps: true });
 

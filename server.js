@@ -12,6 +12,9 @@ const studentRoutes = require('./Routes/student');
 const teacherRoutes = require('./Routes/teacher');
 const sessionRoutes = require('./Routes/session');
 const captainRoutes = require('./Routes/captainRoutes');
+const gymSwimmingRoutes = require("./Routes/gymSwimming");
+const attendanceRoutes = require("./Routes/Attendence");
+
 
 
 const app = express();
@@ -22,7 +25,6 @@ app.use(cors({
 app.use(cookieParser());
 app.use(express.json());
 
-
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
@@ -30,6 +32,8 @@ app.use('/api/student', studentRoutes);
 app.use('/api/teacher', teacherRoutes);
 app.use('/api/session', sessionRoutes);
 app.use('/api/captain', captainRoutes);
+app.use("/api/gym-swimming", gymSwimmingRoutes);
+app.use("/api/attendance", attendanceRoutes);
 
 
 

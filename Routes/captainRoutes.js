@@ -11,57 +11,74 @@ const resolveSession = require('../middleware/resolveSession');
 /**
  * GET captain profile for current session
  */
-router.get('/profile', verifyToken, roleCheck('captain'), resolveSession, async (req, res) => {
-  try {
-    const sessionId = req.resolvedSessionId;
+router.get(
+  '/profile',
+  verifyToken,
+  roleCheck('captain'),
+  resolveSession,
+  async (req, res) => {
+    try {
+      const sessionId = req.resolvedSessionId;
 
-    // Get admin-assigned info from User
-    const userDoc = await User.findById(req.user._id)
-      .select('name branch urn year sport teamMemberCount email captainId');
+      // Admin-assigned info from User
+      const userDoc = await User.findById(req.user._id).select(
+        'name branch urn year sport teamMemberCount email captainId'
+      );
 
-    if (!userDoc) {
-      return res.status(404).json({ message: 'User record not found' });
-    }
+      if (!userDoc) {
+        return res.status(404).json({ message: 'User record not found' });
+      }
 
-    // Find profile by captainId
-    const profile = await CaptainProfile.findOne({
-      captainId: userDoc.captainId,
-      session: sessionId
-    });
+      // Captain profile by captainId + session
+      const profile = await CaptainProfile.findOne({
+        captainId: userDoc.captainId,
+        session: sessionId,
+      });
 
-    if (!profile) {
-      return res.json({
-        profileComplete: false,
+      // Fallback if profile not found
+      if (!profile) {
+        return res.json({
+          profileComplete: false,
+          data: {
+            name: userDoc.name,
+            branch: userDoc.branch,
+            urn: userDoc.urn || '', // ✅ fallback
+            year: userDoc.year,
+            sport: userDoc.sport || '',
+            teamMemberCount: userDoc.teamMemberCount,
+            email: userDoc.email || '',
+            phone: '',
+            position:''
+          },
+        });
+      }
+
+      // If profile found → prefer profile values
+      res.json({
+        profileComplete: !!profile.phone,
         data: {
           name: userDoc.name,
           branch: userDoc.branch,
-          urn: userDoc.urn,
+          urn: profile.urn || userDoc.urn || '', // ✅ prefer profile
           year: userDoc.year,
-          sport: userDoc.sport,
-          teamMemberCount: userDoc.teamMemberCount,
+          sport: profile.sport || userDoc.sport || '',
+          teamMemberCount:
+            profile.teamMemberCount || userDoc.teamMemberCount,
           email: userDoc.email || '',
-          phone: ''
-        }
-      });
-    }
+          phone: profile.phone || '',
+          position:profile.position || '',
+          certificateAvailable:profile.certificateAvailable
 
-    res.json({
-      profileComplete: !!profile.phone,
-      data: {
-        name: userDoc.name,
-        branch: userDoc.branch,
-        urn: userDoc.urn,
-        year: userDoc.year,
-        sport: userDoc.sport,
-        teamMemberCount: userDoc.teamMemberCount,
-        email: userDoc.email || '',
-        phone: profile.phone || ''
-      }
-    });
-  } catch (err) {
-    res.status(500).json({ message: 'Error fetching profile', error: err.message });
+        },
+      });
+    } catch (err) {
+      res
+        .status(500)
+        .json({ message: 'Error fetching profile', error: err.message });
+    }
   }
-});
+);
+
 
 /**
  * POST complete captain profile
@@ -209,5 +226,81 @@ router.post('/my-team/member', verifyToken, roleCheck('captain'), resolveSession
     res.status(500).json({ message: 'Error saving member', error: err.message });
   }
 });
+// Captain History Route
+router.get("/history/:urn", async (req, res) => {
+  try {
+    const { urn } = req.params;
 
+    // 1. Captain Profile
+    const captain = await CaptainProfile.findOne({ urn })
+      .populate("session", "session")
+      .lean();
+
+    if (!captain) {
+      return res.status(404).json({ message: "Captain not found" });
+    }
+
+    // 2. Sports History → captain ke schema me `sport` hai, aur agar multiple hai to array banake bhej denge
+    const sportsHistory = captain.sport ? [captain.sport] : [];
+
+    // 3. Captain Records → urn se saare captain entries
+    const captainRecords = await CaptainProfile.find({ urn })
+      .populate("session", "session")
+      .lean();
+
+    // 4. Member Records → ye captainId se saari teams niklegi
+    const memberRecords = await TeamMember.find({ captainId: captain.captainId })
+      .populate("sessionId", "session")
+      .lean();
+
+    res.json({
+      captain,
+      sportsHistory,
+      captainRecords,
+      memberRecords,
+    });
+  } catch (err) {
+    console.error("Error fetching captain history:", err);
+    res.status(500).json({ message: "Error fetching captain history" });
+  }
+});
+router.get("/my-team-certificate/:captainId", async (req, res) => {
+  try {
+    const { captainId } = req.params;
+
+    const captain = await Captain.findById(captainId)
+      .populate("sessionId", "session")
+      .populate("members"); // ensure members reference is in schema
+
+    if (!captain || !captain.certificateAvailable) {
+      return res
+        .status(404)
+        .json({ message: "Certificate not available yet" });
+    }
+
+    res.json({
+      captain: {
+        _id: captain._id,
+        name: captain.name,
+        urn: captain.urn,
+        branch: captain.branch,
+        sport: captain.sport,
+        session: captain.sessionId?.session,
+        position: captain.position,
+      },
+      members: (captain.members || []).map((m) => ({
+        _id: m._id,
+        name: m.name,
+        urn: m.urn,
+        branch: m.branch,
+        sport: m.sport,
+        session: captain.sessionId?.session,
+        position: m.position || "Team Member",
+      })),
+    });
+  } catch (err) {
+    console.error("Error fetching team certificates:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 module.exports = router;

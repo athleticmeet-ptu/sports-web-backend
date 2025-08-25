@@ -1,62 +1,67 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User'); // ✅ Import your user model
-// Verify JWT from cookies
+
 
 exports.verifyToken = async (req, res, next) => {
-  console.log('📥 Incoming request to protected route');
-  console.log('🔍 Cookies received:', req.cookies);
-
   const token = req.cookies?.token;
-
   if (!token) {
-    console.warn('🚫 No JWT token found in cookies');
-    return res.status(401).json({ message: 'Unauthorized - No token' });
+    return res.status(401).json({ message: "Unauthorized - No token" });
   }
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('✅ Token successfully verified');
-    console.log('🧑‍💻 Decoded token payload:', decoded);
 
-    // 🔹 Load full user from DB so we have _id and other fields
-    const user = await User.findById(decoded.id).select('-password');
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+    // ✅ normalize id
+    const userId = decoded.id || decoded._id;
+    if (!userId) {
+      return res.status(401).json({ message: "Invalid token payload" });
     }
 
-    req.user = user; // ✅ now req.user._id will work
+    // DB se user fetch
+    const user = await User.findById(userId).select("-password");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    req.user = {
+      ...user.toObject(),
+      roles: decoded.roles || user.roles || [],
+      activeRole: decoded.activeRole || null,
+    };
+
     next();
   } catch (err) {
-    console.error('❌ Token verification failed:', err.message);
-    return res.status(403).json({ message: 'Forbidden - Invalid token' });
+    console.error("❌ Token verification failed:", err.message);
+    return res.status(403).json({ message: "Forbidden - Invalid token" });
   }
 };
 
+
 // Role-specific checks
-exports.isAdmin = (req, res, next) =>
-  req.user?.role === 'admin'
+exports.isStudent = (req, res, next) =>
+  req.user?.activeRole === "student"
     ? next()
-    : res.status(403).json({ message: 'Admins only' });
+    : res.status(403).json({ message: "Students only" });
 
 exports.isTeacher = (req, res, next) =>
-  req.user?.role === 'teacher'
+  req.user?.activeRole === "teacher"
     ? next()
-    : res.status(403).json({ message: 'Teachers only' });
+    : res.status(403).json({ message: "Teachers only" });
 
-exports.isStudent = (req, res, next) =>
-  req.user?.role === 'student'
+exports.isAdmin = (req, res, next) =>
+  req.user?.activeRole === "admin"
     ? next()
-    : res.status(403).json({ message: 'Students only' });
+    : res.status(403).json({ message: "Admins only" });
 
-// ✅ Generic role check (can accept multiple allowed roles)
 exports.roleCheck = (...allowedRoles) => {
   return (req, res, next) => {
-    if (!req.user?.role) {
-      return res.status(401).json({ message: 'Unauthorized - No role' });
+    if (!req.user?.activeRole) {
+      return res.status(401).json({ message: "Unauthorized - No active role" });
     }
-    if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ message: 'Access denied' });
+    if (!allowedRoles.includes(req.user.activeRole)) {
+      return res.status(403).json({ message: "Access denied" });
     }
     next();
   };
 };
+
