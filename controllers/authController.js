@@ -41,25 +41,33 @@ exports.login = async (req, res) => {
   }
 };
 
+// Assuming this route is defined as:
+// router.post("/set-role", verifyToken, setRole);
+
 exports.setRole = async (req, res) => {
   try {
     const { role } = req.body;
+    const user = req.user; // already verified by verifyToken
 
-    const token = req.cookies.token;
-    if (!token) return res.status(401).json({ message: "Not authenticated" });
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    const user = await User.findById(decoded.id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
     if (!user.roles.includes(role)) {
       return res.status(403).json({ message: "Invalid role selection" });
     }
 
-    // ✅ sirf DB update karo
-    user.activeRole = role;
-    await user.save();
+    // ✅ create a new token with the selected role
+    const newToken = jwt.sign(
+      { id: user._id, roles: user.roles, activeRole: role },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
+
+    res.cookie("token", newToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // secure in production only
+      sameSite: "None",
+      maxAge: 24 * 60 * 60 * 1000,
+    });
 
     res.json({
       message: "Role set successfully",
