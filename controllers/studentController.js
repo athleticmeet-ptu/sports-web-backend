@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const cloudinary = require('../config/cloudinary'); 
 const multer = require('multer');
 const streamifier = require('streamifier');
+const Session=require('../models/session')
 
 const upload = multer({ storage: multer.memoryStorage() });
 exports.uploadMiddleware = upload.fields([
@@ -113,6 +114,7 @@ exports.getStudentProfile = async (req, res) => {
       interCollegeGraduateCourse: profile.interCollegeGraduateCourse ?? 0,
       interCollegePgCourse: profile.interCollegePgCourse ?? 0,
       isCloned: profile.isCloned || false,
+      sessionId:req.resolvedSessionId
     });
   } catch (err) {
     console.error("Error fetching profile:", err);
@@ -125,10 +127,14 @@ exports.getStudentProfile = async (req, res) => {
 
 // ================= UPDATE PROFILE =================
 exports.updateStudentProfile = async (req, res) => {
+  const activeSession = await Session.findOne({ isActive: true });
+if (!activeSession) {
+  return res.status(404).json({ message: 'Active session not found' });
+}
   try {
     let profile = await StudentProfile.findOne({
-      userId: req.user.id,
-      session: req.resolvedSessionId
+      userId: req.user._id,
+      session: activeSession._id
     });
 
     if (!profile) {
@@ -136,10 +142,10 @@ exports.updateStudentProfile = async (req, res) => {
       if (!user) return res.status(404).json({ message: 'User not found' });
 
       profile = new StudentProfile({
-        userId: req.user.id,
+        userId: req.user._id,
         name: user.name || '', branch: user.branch || '',
         urn: user.urn || '', crn: user.crn || '', year: user.year || '',
-        sports: [], session: req.resolvedSessionId
+        sports: [], session: activeSession._id
       });
     }
 
@@ -194,10 +200,14 @@ exports.updateStudentProfile = async (req, res) => {
 
 // ================= SUBMIT PROFILE =================
 exports.submitStudentProfile = async (req, res) => {
+  const activeSession = await Session.findOne({ isActive: true });
+if (!activeSession) {
+  return res.status(404).json({ message: 'Active session not found' });
+}
   try {
     const profile = await StudentProfile.findOne({
-      userId: req.user.id,
-      session: req.resolvedSessionId
+      userId: req.user._id,
+      session: activeSession._id
     });
 
     if (!profile) return res.status(404).json({ message: "Profile not found" });

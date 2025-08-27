@@ -7,6 +7,7 @@ const Session = require('../models/session');
 const User = require('../models/User');
 const { verifyToken, roleCheck } = require('../middleware/authMiddleware');
 const resolveSession = require('../middleware/resolveSession');
+const StudentProfile=require("../models/StudentProfile")
 
 /**
  * GET captain profile for current session
@@ -67,7 +68,8 @@ router.get(
           email: userDoc.email || '',
           phone: profile.phone || '',
           position:profile.position || '',
-          certificateAvailable:profile.certificateAvailable
+          certificateAvailable:profile.certificateAvailable,
+          sessionId:sessionId
 
         },
       });
@@ -227,43 +229,69 @@ router.post('/my-team/member', verifyToken, roleCheck('captain'), resolveSession
   }
 });
 // Captain History Route
-router.get("/history/:urn", async (req, res) => {
+router.get("/history/:urn/:sessionId", async (req, res) => {
   try {
     const { urn } = req.params;
+    const { sessionId } = req.params; // ✅ session filter query se aayega
 
-    // 1. Captain Profile
-    const captain = await CaptainProfile.findOne({ urn })
+    // 1. Student Profile (session wise filter optional)
+    const studentQuery = { urn };
+    if (sessionId) studentQuery.session = sessionId;
+
+    const student = await StudentProfile.findOne(studentQuery)
       .populate("session", "session")
       .lean();
 
-    if (!captain) {
-      return res.status(404).json({ message: "Captain not found" });
+    // 2. Captain Profile (session wise filter optional)
+    const captainQuery = { urn };
+    if (sessionId) captainQuery.session = sessionId;
+
+    const captain = await CaptainProfile.findOne(captainQuery)
+      .populate("session", "session")
+      .lean();
+
+    // ✅ agar dono hi na mile toh 404
+    if (!student && !captain) {
+      return res.status(404).json({ message: "No profile found for this URN" });
     }
 
-    // 2. Sports History → captain ke schema me `sport` hai, aur agar multiple hai to array banake bhej denge
-    const sportsHistory = captain.sport ? [captain.sport] : [];
+    // 3. Sports History (student aur captain dono ka collect karke)
+    const sportsHistory = [];
+    if (student?.sports?.length) sportsHistory.push(...student.sports);
+    if (captain?.sport) sportsHistory.push(captain.sport);
 
-    // 3. Captain Records → urn se saare captain entries
-    const captainRecords = await CaptainProfile.find({ urn })
+    // 4. Captain Records (urn ke hisaab se, sessionId filter lagake)
+    const captainRecordsQuery = { urn };
+    if (sessionId) captainRecordsQuery.session = sessionId;
+
+    const captainRecords = await CaptainProfile.find(captainRecordsQuery)
       .populate("session", "session")
       .lean();
 
-    // 4. Member Records → ye captainId se saari teams niklegi
-    const memberRecords = await TeamMember.find({ captainId: captain.captainId })
+    // 5. Member Records (TeamMember → captainId aur members.urn dono se check karna)
+    const memberQuery = {
+      $or: [{ "members.urn": urn }, { captainId: captain?.captainId }],
+    };
+    if (sessionId) memberQuery.sessionId = sessionId;
+
+    const memberRecords = await TeamMember.find(memberQuery)
       .populate("sessionId", "session")
       .lean();
 
+    // ✅ Final Response
     res.json({
+      student,
       captain,
       sportsHistory,
       captainRecords,
       memberRecords,
     });
   } catch (err) {
-    console.error("Error fetching captain history:", err);
-    res.status(500).json({ message: "Error fetching captain history" });
+    console.error("Error fetching history:", err);
+    res.status(500).json({ message: "Error fetching history" });
   }
 });
+
 router.get("/my-team-certificate/:captainId", async (req, res) => {
   try {
     const { captainId } = req.params;

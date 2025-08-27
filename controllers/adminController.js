@@ -232,7 +232,9 @@ const getPendingProfiles = async (req, res) => {
         fatherName: student.fatherName || "", // ✅ include father’s name
         firstAdmissionDate: student.firstAdmissionDate || "", // ✅ include admission date
         lastExamName: student.lastExamName || "", // ✅ include last exam name
-        lastExamYear: student.lastExamYear || "", // ✅ include last exam year
+        lastExamYear: student.lastExamYear || "",
+        interCollegeGraduateCourse:student.interCollegeGraduateCourse,
+        interCollegePgCourse:student.interCollegePgCourse,
         
 
         // ---- Pending flags for admin dashboard ----

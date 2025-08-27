@@ -9,7 +9,7 @@ const MemberSchema = new mongoose.Schema({
   email: { type: String, required: true },
   phone: { type: String },
   sport: { type: String },
-  position: { type: Number, default: null }
+  position: { type: String, default: null }
 }, { _id: false });
 
 const TeamMemberSchema = new mongoose.Schema({

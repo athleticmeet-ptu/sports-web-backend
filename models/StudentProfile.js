@@ -25,8 +25,8 @@ const StudentProfileSchema = new mongoose.Schema(
     lastExamName: String,
     lastExamYear: Number,
     yearsOfParticipation: { type: Number, default: 0 },
-    interCollegeGraduateCourse:{type:Number,required:true},
-    interCollegePgCourse:{type:Number,required:true},
+    interCollegeGraduateCourse:{type:Number},
+    interCollegePgCourse:{type:Number},
 
     photo: { type: String },
     signaturePhoto: { type: String },

@@ -1,6 +1,6 @@
 const express = require("express");
 const GymSwimmingStudent = require("../models/GymSwimmingStudent");
-const Session = require("../models/Session");
+const Session = require("../models/session");
 const { verifyToken, isAdmin } = require("../middleware/authMiddleware");
 const router = express.Router();
 

@@ -292,17 +292,36 @@ router.post("/certificates/send/:captainId", async (req, res) => {
 
 router.get("/students-unique", async (req, res) => {
   try {
-    const profiles = await StudentProfile.find().lean();
-    const teams = await TeamMember.find().lean();
-    const captains = await Captain.find().lean();
-    const gymSwim = await GymSwimmingStudent.find().lean();
+    const { session } = req.query; // e.g. "Jan–July 2025" or "July–Dec 2025" or "Jan–Dec 2025"
+    let sessionsToFetch = [];
+
+    if (session) {
+      const year = session.split(" ")[1]; // extract year
+
+      if (session.startsWith("Jan-July") || session.startsWith("July-Dec")) {
+        // 🟢 Half selected → fetch FULL
+        sessionsToFetch = [`Jan-Dec ${year}`];
+      } else if (session.startsWith("Jan-Dec")) {
+        // 🟢 Full selected → fetch both halves
+        sessionsToFetch = [`Jan-July ${year}`, `July-Dec ${year}`];
+      }
+    }
+
+    let query = {};
+    if (sessionsToFetch.length) {
+      query = { session: { $in: sessionsToFetch } };
+    }
+
+    const profiles = await StudentProfile.find(query).lean();
+    const teams = await TeamMember.find(query).lean();
+    const captains = await Captain.find(query).lean();
+    const gymSwim = await GymSwimmingStudent.find(query).lean();
 
     let merged = {};
 
-    // 🟢 From StudentProfile
+    // --- merging logic same as before ---
     (profiles || []).forEach(stu => {
-      if (!stu?.urn) return; // skip if no URN
-
+      if (!stu?.urn) return;
       if (!merged[stu.urn]) {
         merged[stu.urn] = {
           name: stu.name || "",
@@ -313,11 +332,7 @@ router.get("/students-unique", async (req, res) => {
           positions: []
         };
       }
-
-      if (Array.isArray(stu.sports)) {
-        merged[stu.urn].sports.push(...stu.sports);
-      }
-
+      if (Array.isArray(stu.sports)) merged[stu.urn].sports.push(...stu.sports);
       if (Array.isArray(stu.positions)) {
         stu.positions.forEach(pos => {
           if (pos?.sport) merged[stu.urn].sports.push(pos.sport);
@@ -326,11 +341,9 @@ router.get("/students-unique", async (req, res) => {
       }
     });
 
-    // 🟢 From TeamMember
     (teams || []).forEach(team => {
       (team?.members || []).forEach(mem => {
         if (!mem?.urn) return;
-
         if (!merged[mem.urn]) {
           merged[mem.urn] = {
             name: mem.name || "",
@@ -346,10 +359,8 @@ router.get("/students-unique", async (req, res) => {
       });
     });
 
-    // 🟢 From Captains
     (captains || []).forEach(cap => {
       if (!cap?.urn) return;
-
       if (!merged[cap.urn]) {
         merged[cap.urn] = {
           name: cap.name || "",
@@ -364,10 +375,8 @@ router.get("/students-unique", async (req, res) => {
       merged[cap.urn].positions.push(cap.position || "pending");
     });
 
-    // 🟢 From Gym/Swimming
     (gymSwim || []).forEach(gs => {
       if (!gs?.urn) return;
-
       if (!merged[gs.urn]) {
         merged[gs.urn] = {
           name: gs.name || "",
@@ -379,7 +388,7 @@ router.get("/students-unique", async (req, res) => {
         };
       }
       if (gs.sport) merged[gs.urn].sports.push(gs.sport);
-      merged[gs.urn].positions.push("pending"); // default
+      merged[gs.urn].positions.push("pending");
     });
 
     res.json(Object.values(merged));
@@ -388,5 +397,7 @@ router.get("/students-unique", async (req, res) => {
     res.status(500).json({ message: "Error merging student data" });
   }
 });
+
+
 
 module.exports = router;

@@ -41,68 +41,58 @@ router.get('/my-sessions', verifyToken, async (req, res) => {
 
     // Ensure profile exists for active session
     const activeSession = await Session.findOne({ isActive: true }).lean();
-if (activeSession && !sessionIdsWithProfile.includes(activeSession._id.toString())) {
-  const lastProfile = await StudentProfile.findOne({ userId })
-    .sort({ createdAt: -1 })
-    .lean();
 
-  let newProfile;
+    if (activeSession && !sessionIdsWithProfile.includes(activeSession._id.toString())) {
+      const lastProfile = await StudentProfile.findOne({ userId })
+        .sort({ createdAt: -1 })
+        .lean();
 
-  if (lastProfile) {
-    // clone selected fields only
-    newProfile = new StudentProfile({
-      userId,
-      session: activeSession._id,
-      name: lastProfile.name || "",
-      urn: lastProfile.urn || "",
-      branch: lastProfile.branch || "",
-      year: lastProfile.year || "",
-      crn: lastProfile.crn || "",
-      dob: lastProfile.dob || "",
-      gender: lastProfile.gender || "",
-      contact: lastProfile.contact || "",
-      address: lastProfile.address || "",
-      fatherName: lastProfile.fatherName || "",
-      yearOfPassingMatric: lastProfile.yearOfPassingMatric || "",
-      yearOfPassingPlusTwo: lastProfile.yearOfPassingPlusTwo || "",
-      firstAdmissionDate: lastProfile.firstAdmissionDate || "",
-      lastExamName: lastProfile.lastExamName || "",
-      lastExamYear: lastProfile.lastExamYear || "",
-      yearsOfParticipation: lastProfile.yearsOfParticipation || 0,
-      photo: lastProfile.photo || "",
-      signaturePhoto: lastProfile.signaturePhoto || "",
-      interCollegeGraduateCourse: lastProfile.interCollegeGraduateCourse || 0,
-      interCollegePgCourse: lastProfile.interCollegePgCourse || 0,
-      sports: [],      // ✅ reset
-      positions: [],   // ✅ reset
-      status: { personal: "none", sports: "none" },
-      isCloned: true,
-    });
-  } else {
-    // fallback → minimal profile
-    const user = await User.findById(userId);
-    newProfile = new StudentProfile({
-      userId,
-      session: activeSession._id,
-      name: user.name,
-      urn: user.urn,
-      branch: user.branch,
-      year: user.year,
-      crn: user.crn || "",
-      sports: [],
-      positions: [],
-      isRegistered: false,
-      isCloned: false
-    });
-  }
+      if (lastProfile) {
+        // ✅ clone properly
+        const newProfile = new StudentProfile({
+          userId,
+          session: activeSession._id,
 
-  await newProfile.save();
-  sessionIdsWithProfile.push(activeSession._id.toString());
-}
+          // carry forward
+          name: lastProfile.name,
+          urn: lastProfile.urn,
+          branch: lastProfile.branch,
+          year: lastProfile.year,
+          crn: lastProfile.crn,
+          dob: lastProfile.dob,
+          gender: lastProfile.gender,
+          contact: lastProfile.contact,
+          address: lastProfile.address,
+          fatherName: lastProfile.fatherName,
+          yearOfPassingMatric: lastProfile.yearOfPassingMatric,
+          yearOfPassingPlusTwo: lastProfile.yearOfPassingPlusTwo,
+          firstAdmissionDate: lastProfile.firstAdmissionDate,
+          lastExamName: lastProfile.lastExamName,
+          lastExamYear: lastProfile.lastExamYear,
+          yearsOfParticipation: (lastProfile.yearsOfParticipation || 0) + 1,
+          photo: lastProfile.photo,
+          signaturePhoto: lastProfile.signaturePhoto,
+          interCollegeGraduateCourse: lastProfile.interCollegeGraduateCourse ?? 0,
+          interCollegePgCourse: lastProfile.interCollegePgCourse ?? 0,
 
+          // reset for new session
+          sports: [],
+          positions: [],
+          status: { personal: "none", sports: "none" },
+          notifications: [],
+          isCloned: true, // ✅ always true for clones
+        });
 
-    // Fetch all sessions
+        await newProfile.save();
+        sessionIdsWithProfile.push(activeSession._id.toString());
+      }
+      // ⚠️ else: if no lastProfile, skip creating empty doc.
+      // let getStudentProfile handle this case
+    }
+
+    // Fetch all sessions linked to profiles
     const sessions = await Session.find({ _id: { $in: sessionIdsWithProfile } }).lean();
+
     res.json(sessions);
   } catch (err) {
     console.error('Error fetching student sessions:', err);
@@ -124,31 +114,40 @@ router.post(
 
 
 // GET student full history by URN
-router.get("/history/:urn", async (req, res) => {
+router.get("/history/:urn/:sessionId", async (req, res) => {
   try {
     const { urn } = req.params;
+    const { sessionId } = req.params; // ✅ session id query se aayega
 
-    // 1. Student Profile
-    const student = await StudentProfile.findOne({ urn })
+    if (!sessionId) {
+      return res.status(400).json({ message: "sessionId is required" });
+    }
+
+    // 1. Student Profile (filter session ke hisaab se)
+    const student = await StudentProfile.findOne({ urn, session: sessionId })
       .populate("session", "session")
       .lean();
 
     if (!student) {
-      return res.status(404).json({ message: "Student not found" });
+      return res.status(404).json({ message: "Student not found for this session" });
     }
 
-    // 2. Captain History
-    const captainRecords = await Captain.find({ urn }) // ✅ urn field direct match
+    // 2. Captain History (sirf iss session ka)
+    const captainRecords = await Captain.find({ urn, session: sessionId })
       .populate("session", "session")
       .lean();
 
-    // 3. Member History
+    // 3. Member History (sirf iss session ka)
     const memberRecords = await TeamMember.find({
-      "members.urn": urn
+      "members.urn": urn,
+      sessionId: sessionId
     })
       .populate("sessionId", "session")
       .lean();
-const sportsHistory = student.sports || [];
+
+    // 4. Sports History (sirf student ke iss session ka)
+    const sportsHistory = student.sports || [];
+
     res.json({
       student,
       sportsHistory,
@@ -160,6 +159,7 @@ const sportsHistory = student.sports || [];
     res.status(500).json({ message: "Error fetching student history" });
   }
 });
+
 
 
 
