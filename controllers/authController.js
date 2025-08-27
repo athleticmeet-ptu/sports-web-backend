@@ -45,33 +45,21 @@ exports.setRole = async (req, res) => {
   try {
     const { role } = req.body;
 
-    // user ka pura object token se nikal lo
     const token = req.cookies.token;
     if (!token) return res.status(401).json({ message: "Not authenticated" });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // check karo user ke roles me yeh role hai bhi ya nahi
-    const user = await User.findById(decoded.id).lean();
+    const user = await User.findById(decoded.id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
     if (!user.roles.includes(role)) {
       return res.status(403).json({ message: "Invalid role selection" });
     }
 
-    // ✅ naya token banado jisme selectedRole bhi ho
-    const newToken = jwt.sign(
-      { id: user._id, roles: user.roles, activeRole: role },
-      process.env.JWT_SECRET,
-      { expiresIn: "1d" }
-    );
-
-    res.cookie("token", newToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "None",
-      maxAge: 24 * 60 * 60 * 1000,
-    });
+    // ✅ sirf DB update karo
+    user.activeRole = role;
+    await user.save();
 
     res.json({
       message: "Role set successfully",
