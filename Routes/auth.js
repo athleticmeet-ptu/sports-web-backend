@@ -28,5 +28,5 @@ router.get('/me', verifyToken, async (req, res) => {
   }
 });
 
-router.post("/set-role", setRole);
+router.post("/set-role", verifyToken,setRole);
 module.exports = router;
