@@ -19,9 +19,13 @@ const attendanceRoutes = require("./Routes/Attendence");
 
 const app = express();
 app.use(cors({
-  origin: 'https://sports-web-frontend.vercel.app' ||'https://localhost:3000',
+  origin: [
+    "http://localhost:3000", 
+    "https://sports-web-frontend.vercel.app"
+  ],
   credentials: true,
 }));
+
 app.use(cookieParser());
 app.use(express.json());
 
