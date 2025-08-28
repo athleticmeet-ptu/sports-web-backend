@@ -27,7 +27,7 @@ const {
   getAllSessions,
   getFilteredCaptains,
   getCaptainFilters,
-  getEligibleCertificates
+  getEligibleCertificates,upload,
 } = require('../controllers/adminController');
 const { getAllCaptainsWithTeams } = require("../controllers/adminController");
 const { verifyToken, isAdmin } = require('../middleware/authMiddleware');
@@ -105,7 +105,10 @@ router.get("/students", getAllStudents);
 router.get("/student/:id", getStudentById);
 
 // UPDATE student
-router.put("/student/:id", updateStudent);
+router.put("/student/:id",upload.fields([
+    { name: "photo", maxCount: 1 },
+    { name: "signaturePhoto", maxCount: 1 },
+  ]),updateStudent);
 
 // DELETE student
 router.delete("/student/:id", deleteStudent);

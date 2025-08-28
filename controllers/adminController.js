@@ -4,8 +4,11 @@ const Captain = require('../models/Captain');
 const TeamMember = require('../models/TeamMember');
 const bcrypt = require('bcrypt');
 const Session=require("../models/session");
-
+const cloudinary = require("../config/cloudinary");
+const multer = require("multer")
 // CREATE USER (Admin)
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 const createUser = async (req, res) => {
   const {
     name,
@@ -382,28 +385,72 @@ const getAllStudents = async (req, res) => {
 const getStudentById = async (req, res) => {
   try {
     const student = await StudentProfile.findById(req.params.id)
-      .populate("userId", "name email role")
+      .populate("userId", "name email role password") // ✅ password included
       .populate("session", "session year isActive")
       .lean();
 
-    if (!student) return res.status(404).json({ message: "Student not found" });
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
 
     res.json(student);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Failed to fetch student details" });
   }
-};
+}
 
-// ✅ Update student
+// ------------------- UPDATE Student -------------------
 const updateStudent = async (req, res) => {
   try {
+    const { password, ...profileData } = req.body;
+    if (profileData.userId && typeof profileData.userId === "object" && profileData.userId._id) {
+      profileData.userId = profileData.userId._id;
+    }
+
+    // ✅ Upload to Cloudinary if photo/signature provided
+    if (req.files?.photo?.[0]) {
+      const result = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder: "students/photos" },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+        stream.end(req.files.photo[0].buffer);
+      });
+      profileData.photo = result.secure_url;
+    }
+
+    if (req.files?.signaturePhoto?.[0]) {
+      const result = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder: "students/signatures" },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+        stream.end(req.files.signaturePhoto[0].buffer);
+      });
+      profileData.signaturePhoto = result.secure_url;
+    }
+
+    // ✅ Update StudentProfile
     const updated = await StudentProfile.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      profileData,
       { new: true }
-    );
+    ).populate("userId");
+
     if (!updated) return res.status(404).json({ message: "Student not found" });
+
+    // ✅ If password provided → update User model
+    if (password && updated.userId) {
+      const hashed = await bcrypt.hash(password, 10);
+      await User.findByIdAndUpdate(updated.userId._id, { password: hashed });
+    }
 
     res.json(updated);
   } catch (err) {
@@ -411,6 +458,7 @@ const updateStudent = async (req, res) => {
     res.status(500).json({ message: "Failed to update student" });
   }
 };
+
 
 // ✅ Delete student
 const deleteStudent = async (req, res) => {
@@ -740,5 +788,6 @@ module.exports = {
   getAllSessions,
   getFilteredCaptains,
   getCaptainFilters,
-  getEligibleCertificates
+  getEligibleCertificates,
+  upload,
 };
