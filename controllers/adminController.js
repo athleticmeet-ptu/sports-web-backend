@@ -407,6 +407,9 @@ const updateStudent = async (req, res) => {
     if (profileData.userId && typeof profileData.userId === "object" && profileData.userId._id) {
       profileData.userId = profileData.userId._id;
     }
+      if (profileData.session && typeof profileData.session === "object" && profileData.session._id) {
+      profileData.session = profileData.session._id;
+    }
 
     // ✅ Upload to Cloudinary if photo/signature provided
     if (req.files?.photo?.[0]) {

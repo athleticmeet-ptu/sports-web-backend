@@ -2,38 +2,38 @@
 const Session = require('../models/session');
 
 exports.createSession = async (req, res) => {
-  const { startMonth, year } = req.body;  // Removed semester from destructuring
+  const { startMonth, endMonth, year } = req.body;
 
   try {
-    if (!['Jan', 'July'].includes(startMonth)) {
-      return res.status(400).json({ message: 'Invalid start month' });
+    if (!startMonth || !endMonth) {
+      return res.status(400).json({ message: 'Start and end month required' });
     }
     if (!year || isNaN(year)) {
       return res.status(400).json({ message: 'Invalid year' });
     }
 
-    // Build label
-    const session =
-      startMonth === 'Jan'
-        ? `Jan–July ${year}`
-        : `July–Dec ${year}`;
+    // ✅ Build session label
+    const sessionLabel = `${startMonth}–${endMonth} ${year}`;
 
-    // Calculate start and end dates
-    const startDate =
-      startMonth === 'Jan'
-        ? new Date(`${year}-01-01`)
-        : new Date(`${year}-07-01`);
+    // ✅ Month mapping to number
+    const monthMap = {
+      Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, June: 5,
+      July: 6, Aug: 7, Sept: 8, Oct: 9, Nov: 10, Dec: 11
+    };
 
-    const endDate =
-      startMonth === 'Jan'
-        ? new Date(`${year}-07-31`)
-        : new Date(`${year}-12-31`);
+    if (!(startMonth in monthMap) || !(endMonth in monthMap)) {
+      return res.status(400).json({ message: 'Invalid month names' });
+    }
 
-    // Deactivate all sessions
+    // ✅ Start and end dates
+    const startDate = new Date(year, monthMap[startMonth], 1);
+    const endDate = new Date(year, monthMap[endMonth] + 1, 0); // last day of end month
+
+    // Deactivate old sessions
     await Session.updateMany({}, { isActive: false });
 
     const newSession = new Session({
-      session,
+      session: sessionLabel,
       startDate,
       endDate,
       isActive: true
@@ -49,6 +49,7 @@ exports.createSession = async (req, res) => {
     res.status(500).json({ message: 'Error creating session', error: err.message });
   }
 };
+
 
 exports.getAllSessions = async (req, res) => {
   try {
