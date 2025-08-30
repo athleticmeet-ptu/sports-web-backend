@@ -293,105 +293,26 @@ router.post("/certificates/send/:captainId", async (req, res) => {
 });
 
 // Month helper
-function monthIndex(m) {
-  const map = {
-    Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
-    Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11
-  };
-  return map[m] ?? -1;
-}
 
-// Parse session string like "Jan–July 2025"
-function parseSession(sessionStr) {
-  // 1️⃣ Try Month Year–Month Year (e.g. Jan 2025–Dec 2025)
-  let regex2 = /^([A-Za-z]+)\s(\d{4})\s*–\s*([A-Za-z]+)\s(\d{4})$/;
-  let match = sessionStr.match(regex2);
-  if (match) return {
-    startMonth: match[1],
-    startYear: parseInt(match[2]),
-    endMonth: match[3],
-    endYear: parseInt(match[4])
-  };
-
-  // 2️⃣ Fallback Month–Month Year (e.g. Jan–Dec 2025)
-  let regex1 = /^([A-Za-z]+)–([A-Za-z]+)\s(\d{4})$/;
-  match = sessionStr.match(regex1);
-  if (match) return {
-    startMonth: match[1],
-    startYear: parseInt(match[3]),
-    endMonth: match[2],
-    endYear: parseInt(match[3])
-  };
-
-  return null; // invalid
-}
-
-
-// Check overlap
-function isOverlap(userStartM, userStartY, userEndM, userEndY, ses) {
-  const startSes = new Date(ses.startYear, monthIndex(ses.startMonth));
-  const endSes = new Date(ses.endYear, monthIndex(ses.endMonth));
-  const startUser = new Date(userStartY, userStartM);
-  const endUser = new Date(userEndY, userEndM);
-  return startUser <= endSes && startSes <= endUser;
-}
 
 router.get("/students-unique", async (req, res) => {
   try {
-    const { session } = req.query; // e.g. "Jan 2025–Dec 2025"
-    if (!session) return res.status(400).json({ message: "Session required" });
+    let { sessionId } = req.query; 
+    if (!sessionId) return res.status(400).json({ message: "Session ID required" });
 
-    const regex = /([A-Za-z]+)\s(\d{4})\s*–\s*([A-Za-z]+)\s(\d{4})/;
-    const match = session.match(regex);
-    if (!match) return res.status(400).json({ message: "Invalid session format" });
+    // Accept array or single session
+    if (!Array.isArray(sessionId)) sessionId = [sessionId];
 
-    const userStartM = monthIndex(match[1]);
-    const userStartY = parseInt(match[2]);
-    const userEndM = monthIndex(match[3]);
-    const userEndY = parseInt(match[4]);
-
-    // 🔹 Fetch all sessions
-    const allSessions = await Session.find().sort({ startDate: 1 }).lean();
-    let sessionsToFetch = [];
-
-    for (let i = 0; i < allSessions.length; i++) {
-      const ses = parseSession(allSessions[i].session);
-      if (!ses) continue;
-
-      if (isOverlap(userStartM, userStartY, userEndM, userEndY, ses)) {
-        sessionsToFetch.push(allSessions[i].session);
-
-        // Merge next session(s) if user end > current session end
-        let nextIndex = i + 1;
-        while (nextIndex < allSessions.length) {
-          const nextSes = parseSession(allSessions[nextIndex].session);
-          if (!nextSes) break;
-
-          const endCurrent = new Date(ses.endYear, monthIndex(ses.endMonth));
-          const endNext = new Date(nextSes.endYear, monthIndex(nextSes.endMonth));
-          const endUser = new Date(userEndY, userEndM);
-
-          if (endCurrent < endUser && endNext >= endUser) {
-            sessionsToFetch.push(allSessions[nextIndex].session);
-            break;
-          }
-          nextIndex++;
-        }
-        break; // start matched, merged next sessions, break loop
-      }
-    }
-
-    if (!sessionsToFetch.length) return res.json([]);
-
-    const query = { session: { $in: sessionsToFetch } };
+    // 🔹 Fetch students for given sessions
+    const query = { session: { $in: sessionId } };
 
     const profiles = await StudentProfile.find(query).lean();
     const teams = await TeamMember.find(query).lean();
     const captains = await Captain.find(query).lean();
     const gymSwim = await GymSwimmingStudent.find(query).lean();
 
-    // 🔹 Merge logic
-    let merged = {};
+    // 🔹 Merge logic by URN
+    const merged = {};
 
     const addToMerged = (stu, sportField = "sports", posField = "positions") => {
       if (!stu?.urn) return;
@@ -402,7 +323,8 @@ router.get("/students-unique", async (req, res) => {
           branch: stu.branch || "",
           year: stu.year || "",
           sports: [],
-          positions: []
+          positions: [],
+          isCaptain: stu.isCaptain || false,
         };
       }
       if (Array.isArray(stu[sportField])) merged[stu.urn].sports.push(...stu[sportField]);
@@ -410,12 +332,12 @@ router.get("/students-unique", async (req, res) => {
       else if (stu[posField]) merged[stu.urn].positions.push(stu[posField]);
     };
 
-    (profiles || []).forEach(stu => addToMerged(stu));
-    (teams || []).forEach(team => {
-      (team?.members || []).forEach(mem => addToMerged(mem, "sport", "position"));
+    (profiles || []).forEach((stu) => addToMerged(stu));
+    (teams || []).forEach((team) => {
+      (team?.members || []).forEach((mem) => addToMerged(mem, "sport", "position"));
     });
-    (captains || []).forEach(cap => addToMerged(cap, "sport", "position"));
-    (gymSwim || []).forEach(gs => addToMerged(gs, "sport", "pending"));
+    (captains || []).forEach((cap) => addToMerged(cap, "sport", "position"));
+    (gymSwim || []).forEach((gs) => addToMerged(gs, "sport", "pending"));
 
     res.json(Object.values(merged));
   } catch (err) {
@@ -423,6 +345,7 @@ router.get("/students-unique", async (req, res) => {
     res.status(500).json({ message: "Error merging student data" });
   }
 });
+
 
 
 
