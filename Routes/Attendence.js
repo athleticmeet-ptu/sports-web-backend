@@ -1,6 +1,8 @@
 const express = require("express");
 const Attendance = require("../models/Attendence");
+const GymSwimmingStudent = require("../models/GymSwimmingStudent");
 const { verifyToken, isAdmin, isTeacher } = require("../middleware/authMiddleware");
+const { logMarkAttendanceGym, logMarkAttendanceSwimming } = require("../utils/activityLogger");
 const router = express.Router();
 // ✅ Mark Attendance (Admin + Teacher dono kar sakte)
 router.post(
@@ -42,6 +44,18 @@ router.post(
       });
 
       await record.save();
+      
+         // ✅ Fetch student only once and log activity accordingly
+         const student = await GymSwimmingStudent.findById(studentId);
+         if (student) {
+           if (student.sport === "Gym") {
+             await logMarkAttendanceGym(req.user, sessionId, "Session", record._id);
+           } else if (student.sport === "Swimming") {
+             await logMarkAttendanceSwimming(req.user, sessionId, "Session", record._id);
+           }
+         }
+   
+      
       res.status(201).json({ message: "Attendance marked", record });
     } catch (err) {
       console.error(err);

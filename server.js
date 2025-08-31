@@ -14,6 +14,7 @@ const sessionRoutes = require('./Routes/session');
 const captainRoutes = require('./Routes/captainRoutes');
 const gymSwimmingRoutes = require("./Routes/gymSwimming");
 const attendanceRoutes = require("./Routes/Attendence");
+const recentActivityRoutes = require("./Routes/recentActivity");
 
 
 
@@ -38,6 +39,7 @@ app.use('/api/session', sessionRoutes);
 app.use('/api/captain', captainRoutes);
 app.use("/api/gym-swimming", gymSwimmingRoutes);
 app.use("/api/attendance", attendanceRoutes);
+app.use("/api/recent-activities", recentActivityRoutes);
 
 
 

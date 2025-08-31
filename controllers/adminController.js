@@ -6,6 +6,7 @@ const bcrypt = require('bcrypt');
 const Session=require("../models/session");
 const cloudinary = require("../config/cloudinary");
 const multer = require("multer")
+const { logCreateStudent, logCreateCaptain, logEditStudent, logEditCaptain, logDeleteStudent, logAssignPositionStudent, logAssignPositionCaptainTeam, logApproveStudent, logApproveCaptain } = require('../utils/activityLogger');
 // CREATE USER (Admin)
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
@@ -185,6 +186,21 @@ const createUser = async (req, res) => {
       }
     }
 
+    // Log the activity
+    if (role === "student") {
+      if (existing.studentProfile) {
+        await logEditStudent(req.user, existing._id, name);
+      } else {
+        await logCreateStudent(req.user, existing._id, name);
+      }
+    } else if (role === "captain") {
+      if (existing.captainProfile) {
+        await logEditCaptain(req.user, existing._id, name);
+      } else {
+        await logCreateCaptain(req.user, existing._id, name);
+      }
+    }
+
     res.status(201).json({
       message: `${role} created/updated successfully`,
       ...(generatedCaptainId && { captainId: generatedCaptainId }),
@@ -281,6 +297,10 @@ const approveStudentProfile = async (req, res) => {
     }
 
     await student.save();
+    
+    // Log the activity
+    await logApproveStudent(req.user, student._id, student.name);
+    
     res.json({ message: `${type} approved`, student });
   } catch (err) {
     res.status(500).json({ error: "Approval failed" });
@@ -318,15 +338,35 @@ const rejectStudentProfile = async (req, res) => {
 const getAllCaptainsWithTeams = async (req, res) => {
   try {
     const captains = await Captain.find()
-      .populate("session", "name year") // only fetch session name & year
-      .populate("createdBy", "name email"); // fetch admin name & email
+      .populate("session", "name year")
+      .populate("createdBy", "name email")
+      .lean();
 
-    res.json(captains);
+    const captainsWithTeams = await Promise.all(
+      captains.map(async (captain) => {
+        const team = await TeamMember.findOne({
+          captainId: captain.captainId,       // ✅ match on custom captainId string
+          sessionId: captain.session?._id,    // ✅ match on session
+        }).lean();
+
+        return {
+          ...captain,
+          sessionId: team ? team.sessionId : null,
+          teamMembers: team ? team.members : [],
+          teamStatus: team ? team.status : "pending",
+          captainId:team ? team.captainId:""
+
+        };
+      })
+    );
+
+    res.json(captainsWithTeams);
   } catch (error) {
-    console.error("Error fetching captains:", error);
-    res.status(500).json({ message: "Server error while fetching captains" });
+    console.error("Error fetching captains with teams:", error);
+    res.status(500).json({ message: "Server error while fetching captains with teams" });
   }
 };
+
 
 // GET PENDING TEAMS
 const getPendingTeams = async (req, res) => {
@@ -359,6 +399,11 @@ const updateTeamStatus = async (req, res) => {
       .populate('sessionId', 'session');
 
     if (!team) return res.status(404).json({ message: 'Team not found' });
+
+    // Log the activity
+    if (status === 'approved') {
+      await logApproveCaptain(req.user, team.captainId._id, team.captainId.name);
+    }
 
     res.json({ message: `Team ${status}`, team });
   } catch (err) {
@@ -469,6 +514,9 @@ const deleteStudent = async (req, res) => {
     const deleted = await StudentProfile.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ message: "Student not found" });
 
+    // Log the activity
+    await logDeleteStudent(req.user, deleted._id, deleted.name);
+
     res.json({ message: "Student deleted successfully" });
   } catch (err) {
     console.error(err);
@@ -501,6 +549,10 @@ const assignSportPosition = async (req, res) => {
     }
 
     await student.save();
+    
+    // Log the activity
+    await logAssignPositionStudent(req.user, student._id, student.name, position);
+    
     res.json({ message: "Position assigned successfully", student });
   } catch (err) {
     console.error(err);
@@ -512,7 +564,7 @@ const assignTeamPosition = async (req, res) => {
     const { captainId, position } = req.body;
 
     // Captain update
-    const captain = await Captain.findOne({ captainId });
+    const captain = await Captain.findOne({ _id:captainId });
     if (!captain) {
       return res.status(404).json({ message: "Captain not found" });
     }
@@ -534,6 +586,9 @@ const assignTeamPosition = async (req, res) => {
       }));
       await team.save();
     }
+
+    // Log the activity
+    await logAssignPositionCaptainTeam(req.user, captain._id, captain.name, `Position: ${position}`);
 
     res.json({ message: "Position assigned successfully", position });
   } catch (err) {

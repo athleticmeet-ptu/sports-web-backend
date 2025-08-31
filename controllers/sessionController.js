@@ -1,5 +1,6 @@
 // controllers/sessionController.js
 const Session = require('../models/session');
+const { logSessionCreated, logSessionDeleted, logSessionActivated } = require('../utils/activityLogger');
 
 exports.createSession = async (req, res) => {
   const { startMonth, endMonth, year } = req.body;
@@ -41,6 +42,9 @@ exports.createSession = async (req, res) => {
 
     await newSession.save();
 
+    // Log the activity
+    await logSessionCreated(req.user, newSession._id, newSession.session);
+
     res.status(201).json({
       message: 'New session created and activated',
       session: newSession
@@ -79,6 +83,9 @@ exports.setActiveSession = async (req, res) => {
     await Session.updateMany({}, { isActive: false });
     const session = await Session.findByIdAndUpdate(sessionId, { isActive: true }, { new: true });
 
+    // Log the activity
+    await logSessionActivated(req.user, session._id, session.session);
+
     res.json({ message: 'Session activated', session });
   } catch (err) {
     res.status(500).json({ message: 'Error setting session active', error: err.message });
@@ -87,7 +94,16 @@ exports.setActiveSession = async (req, res) => {
 
 exports.deleteSession = async (req, res) => {
   try {
+    const session = await Session.findById(req.params.id);
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+    
     await Session.findByIdAndDelete(req.params.id);
+    
+    // Log the activity
+    await logSessionDeleted(req.user, session._id, session.session);
+    
     res.json({ message: 'Session deleted' });
   } catch (err) {
     res.status(500).json({ message: 'Error deleting session' });

@@ -7,6 +7,7 @@ const Certificate=require("../models/Certificate")
 const TeamMember=require("../models/TeamMember")
 const Session=require("../models/session")
 const GymSwimmingStudent = require("../models/GymSwimmingStudent");
+const mongoose = require("mongoose");
 const {
   createUser,
   getAllUsers,
@@ -31,6 +32,7 @@ const {
 } = require('../controllers/adminController');
 const { getAllCaptainsWithTeams } = require("../controllers/adminController");
 const { verifyToken, isAdmin } = require('../middleware/authMiddleware');
+const { logSendCertificate, logEditTeamMember, logDeleteTeamMember, logDeleteCaptain } = require('../utils/activityLogger');
 
 // User management
 router.post('/create-user', verifyToken, isAdmin, createUser);
@@ -65,12 +67,52 @@ router.put("/captains/:id", async (req, res) => {
     res.status(500).json({ message: "Server error updating captain" });
   }
 });
+router.put("/:captainId/:sessionId/members/:memberIndex", async (req, res) => {
+  try {
+    const { captainId, sessionId, memberIndex } = req.params;
+    const updatedData = req.body; // { name, urn, branch, year, email, phone, sport, position }
+    console.log(captainId,sessionId);
+    // Find the team
+    const team = await TeamMember.findOne({ captainId, sessionId: new mongoose.Types.ObjectId(sessionId) });
+    if (!team) {
+      return res.status(404).json({ message: "Team not found for this captain & session" });
+    }
+
+    // Check if member exists
+    if (!team.members[memberIndex]) {
+      return res.status(404).json({ message: "Team member not found" });
+    }
+
+    // Merge updated fields
+    team.members[memberIndex] = {
+      ...team.members[memberIndex]._doc,
+      ...updatedData,
+    };
+
+    await team.save();
+    
+    // Log the activity
+    const memberName = team.members[memberIndex].name || 'Team Member';
+    await logEditTeamMember(req.user, team._id, memberName);
+    
+    res.json({ message: "Team member updated successfully", teamMembers:team.members });
+  } catch (error) {
+    console.error("Error updating team member:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
 
 // ✅ Delete a captain
 router.delete("/captains/:id", async (req, res) => {
   try {
-    const captain = await Captain.findByIdAndDelete(req.params.id);
+    const captain = await Captain.findById(req.params.id);
     if (!captain) return res.status(404).json({ message: "Captain not found" });
+    
+    await Captain.findByIdAndDelete(req.params.id);
+    
+    // Log the activity
+    await logDeleteCaptain(req.user, captain._id, captain.name);
+    
     res.json({ message: "Captain deleted successfully" });
   } catch (err) {
     console.error("Error deleting captain:", err);
@@ -90,8 +132,14 @@ router.delete("/captains/:id/members/:memberIndex", async (req, res) => {
     }
 
     // Remove member
+    const deletedMember = captain.teamMembers[memberIndex];
     captain.teamMembers.splice(memberIndex, 1);
     await captain.save();
+
+    // Log the activity
+    if (deletedMember) {
+      await logDeleteTeamMember(req.user, captain._id, deletedMember.name || 'Team Member');
+    }
 
     res.json(captain);
   } catch (err) {
@@ -284,6 +332,9 @@ router.post("/certificates/send/:captainId", async (req, res) => {
     const { captainId } = req.params;
 
     await Captain.findByIdAndUpdate(captainId, { certificateAvailable: true });
+
+    // Log the activity
+    await logSendCertificate(req.user, captainId, captain.name);
 
     res.json({ success: true, message: "Certificate marked as sent" });
   } catch (err) {
