@@ -3,9 +3,9 @@ const router = express.Router();
 const { login,setRole } = require('../controllers/authController');
 const { verifyToken } = require('../middleware/authMiddleware');
 const User = require('../models/User'); // ✅ Import the User model
-
+const { loginLimiter } = require("../middleware/rateLimiter");
 // POST /api/auth/login
-router.post('/login', login);
+router.post('/login',loginLimiter, login);
 
 // GET /api/auth/me
 router.get('/me', verifyToken, async (req, res) => {

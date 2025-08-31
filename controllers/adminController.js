@@ -449,36 +449,43 @@ const getStudentById = async (req, res) => {
 const updateStudent = async (req, res) => {
   try {
     const { password, ...profileData } = req.body;
+
+    // ✅ Convert userId and session to _id
     if (profileData.userId && typeof profileData.userId === "object" && profileData.userId._id) {
       profileData.userId = profileData.userId._id;
     }
-      if (profileData.session && typeof profileData.session === "object" && profileData.session._id) {
+    if (profileData.session && typeof profileData.session === "object" && profileData.session._id) {
       profileData.session = profileData.session._id;
     }
 
-    // ✅ Upload to Cloudinary if photo/signature provided
+    // ✅ Parse positions if sent as string
+    if (profileData.positions && typeof profileData.positions === "string") {
+      try {
+        profileData.positions = JSON.parse(profileData.positions);
+      } catch (err) {
+        console.error("Invalid positions JSON", err);
+        return res.status(400).json({ message: "Invalid positions format" });
+      }
+    }
+
+    // ✅ Upload photo
     if (req.files?.photo?.[0]) {
       const result = await new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
           { folder: "students/photos" },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          }
+          (error, result) => (error ? reject(error) : resolve(result))
         );
         stream.end(req.files.photo[0].buffer);
       });
       profileData.photo = result.secure_url;
     }
 
+    // ✅ Upload signaturePhoto
     if (req.files?.signaturePhoto?.[0]) {
       const result = await new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
           { folder: "students/signatures" },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          }
+          (error, result) => (error ? reject(error) : resolve(result))
         );
         stream.end(req.files.signaturePhoto[0].buffer);
       });
@@ -506,6 +513,7 @@ const updateStudent = async (req, res) => {
     res.status(500).json({ message: "Failed to update student" });
   }
 };
+
 
 
 // ✅ Delete student
