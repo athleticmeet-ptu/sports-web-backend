@@ -416,7 +416,7 @@ const getAllStudents = async (req, res) => {
     const students = await StudentProfile.find()
       .populate("userId", "name email")
       .populate("session", "session")
-      .select("name urn crn branch year session photo status sports positions ")
+      .select("name urn crn branch year session photo status sports positions gender ")
       .lean();
 
     res.json(students);
