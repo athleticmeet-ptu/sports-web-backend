@@ -414,9 +414,9 @@ const getAllUsers = async (req, res) => { try { const users = await User.find({}
 const getAllStudents = async (req, res) => {
   try {
     const students = await StudentProfile.find()
-      .populate("userId", "name email")
+      .populate("userId", "name email gender")
       .populate("session", "session")
-      .select("name urn crn branch year session photo status sports positions ")
+      .select("name urn crn branch year session photo status sports positions gender ")
       .lean();
 
     res.json(students);
@@ -430,7 +430,7 @@ const getAllStudents = async (req, res) => {
 const getStudentById = async (req, res) => {
   try {
     const student = await StudentProfile.findById(req.params.id)
-      .populate("userId", "name email role password") // ✅ password included
+      .populate("userId", "name email role password gender") // ✅ password included
       .populate("session", "session year isActive")
       .lean();
 
@@ -655,7 +655,8 @@ const getallStudents = async (req, res) => {
         position: pos.position
       })),
       session: st.session?.session || "",
-      sports: st.sports || []
+      sports: st.sports || [],
+      gender: st.gender || ""
     }));
 
     res.json(formatted);
