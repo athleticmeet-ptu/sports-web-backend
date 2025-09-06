@@ -78,3 +78,20 @@ exports.setRole = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+exports.logout = async (req, res) => {
+  try {
+    // Clear the token cookie
+    res.clearCookie('token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: 'None',
+      path: '/'
+    });
+    
+    res.json({ message: 'Logout successful' });
+  } catch (err) {
+    console.error("Logout error:", err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};

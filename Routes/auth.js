@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { login,setRole } = require('../controllers/authController');
+const { login, setRole, logout } = require('../controllers/authController');
 const { verifyToken } = require('../middleware/authMiddleware');
 const User = require('../models/User'); // ✅ Import the User model
 const { loginLimiter } = require("../middleware/rateLimiter");
@@ -28,5 +28,9 @@ router.get('/me', verifyToken, async (req, res) => {
   }
 });
 
-router.post("/set-role", verifyToken,setRole);
+router.post("/set-role", verifyToken, setRole);
+
+// POST /api/auth/logout
+router.post('/logout', logout);
+
 module.exports = router;
