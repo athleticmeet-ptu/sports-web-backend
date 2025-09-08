@@ -50,7 +50,7 @@ router.delete('/student/:id/reject', verifyToken, isAdmin,rejectStudentProfile);
 // Team approvals
 router.get('/pending-teams', verifyToken, isAdmin, getPendingTeams);
 router.put('/team/:teamId/status', verifyToken, isAdmin, updateTeamStatus);
-router.post("/assign-position", verifyToken, isAdmin, assignTeamPosition);
+router.put("/assign-position", verifyToken, isAdmin, assignTeamPosition);
 // ✅ Get all student profiles
 router.get("/captains", getAllCaptainsWithTeams);
 router.put("/captains/:id", async (req, res) => {
@@ -67,7 +67,7 @@ router.put("/captains/:id", async (req, res) => {
     res.status(500).json({ message: "Server error updating captain" });
   }
 });
-router.put("/:captainId/:sessionId/members/:memberIndex", async (req, res) => {
+router.put("/:captainId/:sessionId/members/:memberIndex",verifyToken, async (req, res) => {
   try {
     const { captainId, sessionId, memberIndex } = req.params;
     const updatedData = req.body; // { name, urn, branch, year, email, phone, sport, position }
@@ -103,7 +103,7 @@ router.put("/:captainId/:sessionId/members/:memberIndex", async (req, res) => {
 });
 
 // ✅ Delete a captain
-router.delete("/captains/:id", async (req, res) => {
+router.delete("/captains/:id",verifyToken, async (req, res) => {
   try {
     const captain = await Captain.findById(req.params.id);
     if (!captain) return res.status(404).json({ message: "Captain not found" });
@@ -121,7 +121,7 @@ router.delete("/captains/:id", async (req, res) => {
 });
 
 // ✅ Delete a team member by index
-router.delete("/captains/:id/members/:memberIndex", async (req, res) => {
+router.delete("/captains/:id/members/:memberIndex",verifyToken, async (req, res) => {
   try {
     const { id, memberIndex } = req.params;
     const captain = await Captain.findById(id);
@@ -327,11 +327,19 @@ router.get("/certificates/:captainId", async (req, res) => {
   }
 });
 
-router.post("/certificates/send/:captainId", async (req, res) => {
+router.post("/certificates/send/:captainId",verifyToken, async (req, res) => {
   try {
     const { captainId } = req.params;
 
-    await Captain.findByIdAndUpdate(captainId, { certificateAvailable: true });
+    // Fetch captain first
+    const captain = await Captain.findById(captainId);
+    if (!captain) {
+      return res.status(404).json({ message: "Captain not found" });
+    }
+
+    // Update certificateAvailable
+    captain.certificateAvailable = true;
+    await captain.save();
 
     // Log the activity
     await logSendCertificate(req.user, captainId, captain.name);
@@ -342,6 +350,7 @@ router.post("/certificates/send/:captainId", async (req, res) => {
     res.status(500).json({ message: "Error sending certificate" });
   }
 });
+
 
 // Month helper
 

@@ -572,7 +572,7 @@ const assignTeamPosition = async (req, res) => {
     const { captainId, position } = req.body;
 
     // Captain update
-    const captain = await Captain.findOne({ _id:captainId });
+    const captain = await Captain.findOne({ captainId:captainId });
     if (!captain) {
       return res.status(404).json({ message: "Captain not found" });
     }
