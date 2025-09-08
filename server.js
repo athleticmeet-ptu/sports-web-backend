@@ -43,23 +43,33 @@ app.use("/api/recent-activities", recentActivityRoutes);
 
 
 
-const startServer = async () => {
-  try {
-    await mongoose.connect(process.env.MONGO_URI);
+// const startServer = async () => {
+//   try {
+//     await mongoose.connect(process.env.MONGO_URI);
+//     console.log('✅ MongoDB connected');
+
+//     await createAdminIfNotExists(); // 👈 Create admin at startup
+
+//     app.listen(5000, () => {
+//       console.log('🚀 Server running on http://localhost:5000');
+//     });
+//   } catch (err) {
+//     console.error('❌ Error starting server:', err);
+//     process.exit(1);
+//   }
+// };
+
+mongoose.connect(process.env.MONGO_URI)
+  .then(async () => {
     console.log('✅ MongoDB connected');
+    await createAdminIfNotExists();
+  })
+  .catch(err => console.error('❌ MongoDB connection error:', err));
 
-    await createAdminIfNotExists(); // 👈 Create admin at startup
-
-    app.listen(5000, () => {
-      console.log('🚀 Server running on http://localhost:5000');
-    });
-  } catch (err) {
-    console.error('❌ Error starting server:', err);
-    process.exit(1);
-  }
-};
-
-
+// ❌ No app.listen here
+// ✅ Just export app for Vercel
+module.exports = app;
 // inside startServer
 
-startServer();
+// startServer();
+module.exports = app;
