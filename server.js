@@ -72,4 +72,3 @@ module.exports = app;
 // inside startServer
 
 // startServer();
-module.exports = app;
