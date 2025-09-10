@@ -345,27 +345,33 @@ const getAllCaptainsWithTeams = async (req, res) => {
     const captainsWithTeams = await Promise.all(
       captains.map(async (captain) => {
         const team = await TeamMember.findOne({
-          captainId: captain.captainId,       // ✅ match on custom captainId string
-          sessionId: captain.session?._id,    // ✅ match on session
+          captainId: captain.captainId,     // ✅ match on custom captainId string
+          sessionId: captain.session?._id,  // ✅ match on session
+          status: "approved",               // ✅ only approved teams
         }).lean();
+
+        if (!team) return null; // ❌ skip if no approved team
 
         return {
           ...captain,
-          sessionId: team ? team.sessionId : null,
-          teamMembers: team ? team.members : [],
-          teamStatus: team ? team.status : "pending",
-          captainId:team ? team.captainId:""
-
+          sessionId: team.sessionId,
+          teamMembers: team.members,
+          teamStatus: team.status,
+          captainId: team.captainId,
         };
       })
     );
 
-    res.json(captainsWithTeams);
+    // null hatao (sirf approved teams wale bache)
+    const approvedCaptains = captainsWithTeams.filter(Boolean);
+
+    res.json(approvedCaptains);
   } catch (error) {
     console.error("Error fetching captains with teams:", error);
     res.status(500).json({ message: "Server error while fetching captains with teams" });
   }
 };
+
 
 
 // GET PENDING TEAMS

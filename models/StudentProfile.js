@@ -38,7 +38,7 @@ const StudentProfileSchema = new mongoose.Schema(
 positions: [
   {
     sport: { type: String, required: true },
-    position: { type: String, enum: ["1st", "2nd", "3rd"], required: true,default:"pending" }
+    position: { type: String, enum: ["1st", "2nd", "3rd","participated"], required: true,default:"pending" }
   }
 ],
     // ----- Status -----

@@ -121,32 +121,56 @@ router.delete("/captains/:id",verifyToken, async (req, res) => {
 });
 
 // ✅ Delete a team member by index
-router.delete("/captains/:id/members/:memberIndex",verifyToken, async (req, res) => {
+router.delete("/captains/:captainId/:sessionId/members/:memberIndex", verifyToken, async (req, res) => {
   try {
-    const { id, memberIndex } = req.params;
-    const captain = await Captain.findById(id);
+    const { captainId, sessionId, memberIndex } = req.params;
+    const sessionObjectId = new mongoose.Types.ObjectId(sessionId);
 
-    if (!captain) return res.status(404).json({ message: "Captain not found" });
-    if (memberIndex < 0 || memberIndex >= captain.teamMembers.length) {
-      return res.status(400).json({ message: "Invalid member index" });
+    // ✅ Captain dhoondo with session
+    const captain = await Captain.findOne({ captainId, session: sessionObjectId });
+    if (!captain) return res.status(404).json({ message: "Captain not found for this session" });
+
+    // ✅ Team find karo TeamMember collection me
+    const team = await TeamMember.findOne({ captainId, sessionId: sessionObjectId });
+    if (!team) return res.status(404).json({ message: "Team not found for this session" });
+
+    const index = parseInt(memberIndex, 10);
+    console.log("Member Index:", index, "Captain Members:", captain.teamMembers.length);
+    console.log("Captain Doc:", captain);
+    console.log("Team Doc:", team);
+
+    // --- Delete from Captain.teamMembers only if exists ---
+    let deletedCaptainMember = null;
+    if (index >= 0 && index < captain.teamMembers.length) {
+      deletedCaptainMember = captain.teamMembers.splice(index, 1)[0];
+      await captain.save();
     }
 
-    // Remove member
-    const deletedMember = captain.teamMembers[memberIndex];
-    captain.teamMembers.splice(memberIndex, 1);
-    await captain.save();
-
-    // Log the activity
-    if (deletedMember) {
-      await logDeleteTeamMember(req.user, captain._id, deletedMember.name || 'Team Member');
+    // --- Delete from TeamMember.members ---
+    if (index < 0 || index >= team.members.length) {
+      return res.status(400).json({ message: "Invalid member index for team members" });
     }
+    const deletedTeamMember = team.members.splice(index, 1)[0];
+    team.status = "pending"; // ✅ reset status
+    await team.save();
 
-    res.json(captain);
+    // --- Log activity ---
+    const deletedMemberName = deletedCaptainMember?.name || deletedTeamMember?.name || "Team Member";
+    await logDeleteTeamMember(req.user, captain._id, deletedMemberName);
+
+    res.json({
+      message: "Team member deleted successfully",
+      captain,
+      team
+    });
   } catch (err) {
     console.error("Error deleting team member:", err);
     res.status(500).json({ message: "Server error deleting team member" });
   }
 });
+
+
+
 router.get("/students", getAllStudents);
 
 // GET single student by id
